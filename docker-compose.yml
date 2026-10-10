@@ -1,37 +1,28 @@
 # AidatTakip - Supabase (küçültülmüş sürüm)
 #
-# Easypanel'in standart Supabase şablonundan (easypanel-io/compose, supabase/code) türetildi.
-# Sadece uygulamanın gerçekten kullandığı 4 servis kalır: db, kong, auth, rest.
-# Çıkarılanlar: analytics, vector, studio, meta, realtime, storage, imgproxy, functions, supavisor.
-# Hepsi bu dosyada hiç tanımlı olmadığı için "Dağıt"a basılsa bile açılmaz.
-#
-# Önemli: kalıcı dosyalar (veritabanı verisi, kong.yml) ${VOLUMES_DIR} altında durur.
-# Bu klasör Git klasörünün DIŞINDA, sabit bir yerde olmalı (bkz. README.md).
+# Sadece uygulamanın kullandığı 4 servis: db, kong, auth, rest.
+# Ortam değişkenleri Easypanel'den DEĞİL, sunucudaki /opt/aidat-supabase/env/*.env
+# dosyalarından okunur (make-env.sh ile mevcut konteynerlerden üretilir).
+# Bu dosyada şifre yoktur.
+# Veri: /opt/aidat-supabase/volumes (Git klasörünün dışında).
 
 services:
 
   kong:
     image: kong:2.8.1
     restart: unless-stopped
+    env_file:
+      - /opt/aidat-supabase/env/kong.env
     volumes:
-      - ${VOLUMES_DIR}/api/kong.yml:/home/kong/temp.yml:ro,z
-    environment:
-      KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
-      KONG_DNS_ORDER: LAST,A,CNAME
-      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth,request-termination,ip-restriction
-      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
-      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
-      SUPABASE_ANON_KEY: ${ANON_KEY}
-      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
-      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
-      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+      - /opt/aidat-supabase/volumes/api/kong.yml:/home/kong/temp.yml:ro,z
     entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml &&
       /docker-entrypoint.sh kong docker-start'
 
   auth:
     image: supabase/gotrue:v2.184.0
     restart: unless-stopped
+    env_file:
+      - /opt/aidat-supabase/env/auth.env
     healthcheck:
       test:
         [
@@ -48,81 +39,30 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      GOTRUE_API_HOST: 0.0.0.0
-      GOTRUE_API_PORT: 9999
-      API_EXTERNAL_URL: ${API_EXTERNAL_URL}
-
-      GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-
-      GOTRUE_SITE_URL: ${SITE_URL}
-      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
-      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP}
-
-      GOTRUE_JWT_ADMIN_ROLES: service_role
-      GOTRUE_JWT_AUD: authenticated
-      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
-      GOTRUE_JWT_EXP: ${JWT_EXPIRY}
-      GOTRUE_JWT_SECRET: ${JWT_SECRET}
-
-      GOTRUE_EXTERNAL_EMAIL_ENABLED: ${ENABLE_EMAIL_SIGNUP}
-      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_USERS}
-      GOTRUE_MAILER_AUTOCONFIRM: ${ENABLE_EMAIL_AUTOCONFIRM}
-
-      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
-      GOTRUE_SMTP_HOST: ${SMTP_HOST}
-      GOTRUE_SMTP_PORT: ${SMTP_PORT}
-      GOTRUE_SMTP_USER: ${SMTP_USER}
-      GOTRUE_SMTP_PASS: ${SMTP_PASS}
-      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME}
-      GOTRUE_MAILER_URLPATHS_INVITE: ${MAILER_URLPATHS_INVITE}
-      GOTRUE_MAILER_URLPATHS_CONFIRMATION: ${MAILER_URLPATHS_CONFIRMATION}
-      GOTRUE_MAILER_URLPATHS_RECOVERY: ${MAILER_URLPATHS_RECOVERY}
-      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: ${MAILER_URLPATHS_EMAIL_CHANGE}
-
-      GOTRUE_EXTERNAL_PHONE_ENABLED: ${ENABLE_PHONE_SIGNUP}
-      GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM}
 
   rest:
     image: postgrest/postgrest:v14.1
     restart: unless-stopped
+    env_file:
+      - /opt/aidat-supabase/env/rest.env
     depends_on:
       db:
         condition: service_healthy
-    environment:
-      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
-      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS}
-      PGRST_DB_ANON_ROLE: anon
-      PGRST_JWT_SECRET: ${JWT_SECRET}
-      PGRST_DB_USE_LEGACY_GUCS: "false"
-      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
-      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY}
     command: [ "postgrest" ]
 
   db:
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
+    env_file:
+      - /opt/aidat-supabase/env/db.env
     volumes:
-      # Veri klasörü: mevcut veritabanının bulunduğu yer. Başlangıç SQL'leri artık gerekmiyor
-      # (veritabanı zaten kurulu); sadece veri ve pgsodium anahtarı kalıcı tutulur.
-      - ${VOLUMES_DIR}/db/data:/var/lib/postgresql/data:Z
+      - /opt/aidat-supabase/volumes/db/data:/var/lib/postgresql/data:Z
       - db-config:/etc/postgresql-custom
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "postgres", "-h", "localhost" ]
       interval: 5s
       timeout: 5s
       retries: 10
-    environment:
-      POSTGRES_HOST: /var/run/postgresql
-      PGPORT: ${POSTGRES_PORT}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGDATABASE: ${POSTGRES_DB}
-      POSTGRES_DB: ${POSTGRES_DB}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXP: ${JWT_EXPIRY}
     command:
       [
         "postgres",
