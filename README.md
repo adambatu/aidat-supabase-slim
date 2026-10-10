@@ -1,0 +1,1 @@
+# aidat-supabase-slim
