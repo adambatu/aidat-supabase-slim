@@ -1,7 +1,7 @@
 # AidatTakip - Supabase (küçültülmüş sürüm)
 #
 # Sadece uygulamanın kullandığı 4 servis: db, kong, auth, rest.
-# Ortam değişkenleri Easypanel'den DEĞİL, sunucudaki /opt/aidat-supabase/env/*.env
+# Ortam değişkenleri Easypanel'den DEĞİL, sunucudaki /etc/easypanel/aidat-supabase/env/*.env
 # dosyalarından okunur (make-env.sh ile mevcut konteynerlerden üretilir).
 # Bu dosyada şifre yoktur.
 # Veri: /opt/aidat-supabase/volumes (Git klasörünün dışında).
@@ -12,7 +12,7 @@ services:
     image: kong:2.8.1
     restart: unless-stopped
     env_file:
-      - /opt/aidat-supabase/env/kong.env
+      - /etc/easypanel/aidat-supabase/env/kong.env
     volumes:
       - /opt/aidat-supabase/volumes/api/kong.yml:/home/kong/temp.yml:ro,z
     entrypoint: bash -c 'eval "echo \"$$(cat ~/temp.yml)\"" > ~/kong.yml &&
@@ -22,7 +22,7 @@ services:
     image: supabase/gotrue:v2.184.0
     restart: unless-stopped
     env_file:
-      - /opt/aidat-supabase/env/auth.env
+      - /etc/easypanel/aidat-supabase/env/auth.env
     healthcheck:
       test:
         [
@@ -44,7 +44,7 @@ services:
     image: postgrest/postgrest:v14.1
     restart: unless-stopped
     env_file:
-      - /opt/aidat-supabase/env/rest.env
+      - /etc/easypanel/aidat-supabase/env/rest.env
     depends_on:
       db:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
     env_file:
-      - /opt/aidat-supabase/env/db.env
+      - /etc/easypanel/aidat-supabase/env/db.env
     volumes:
       - /opt/aidat-supabase/volumes/db/data:/var/lib/postgresql/data:Z
       - db-config:/etc/postgresql-custom

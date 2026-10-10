@@ -1,10 +1,10 @@
 #!/bin/sh
 # Çalışan (veya durmuş) Supabase konteynerlerinden ortam dosyalarını üretir.
 # Şifreler bu sunucuda kalır; git'e veya sohbete gitmez.
-#   sh make-env.sh            -> /opt/aidat-supabase/env/{db,kong,auth,rest}.env
+#   sh make-env.sh            -> /etc/easypanel/aidat-supabase/env/{db,kong,auth,rest}.env
 set -eu
 P=deneme_aidat-database
-OUT=/opt/aidat-supabase/env
+OUT=/etc/easypanel/aidat-supabase/env
 mkdir -p "$OUT"
 chmod 700 "$OUT"
 for s in db kong auth rest; do
